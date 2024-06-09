@@ -41,3 +41,19 @@ char **split_operators(char *line)
 	commands[i] = NULL;
 	return commands;
 }	
+
+char **split_pipes(char *line) 
+{
+	char **commands = malloc(MAX_ARGS * sizeof(char *));
+	char *command;
+	int i = 0;
+
+	command = strtok(line, "|");
+	while (command != NULL) {
+		commands[i++] = command;
+		command = strtok(NULL, "|");
+	}
+	commands[i] = NULL;
+	return commands;
+}
+

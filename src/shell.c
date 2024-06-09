@@ -26,11 +26,17 @@ void shell_loop()
 		}
 		commands = split_operators(line);
 		for (int i = 0; commands[i] != NULL; i++) {
-			char **args = parse_line(commands[i]);
-			if (args[0] != NULL) {
-				status = execute_command(args);
+			char **pipe_segments = split_pipes(commands[i]);
+			if (pipe_segments[1] == NULL) {
+				char **args = parse_line(pipe_segments[0]);
+				if (args[0] != NULL) {
+					status = execute_command(args);
+				}
+				free(args);
+			} else {
+				execute_piped_commands(pipe_segments);
 			}
-			free(args);
+			free(pipe_segments);
 
 			// Handle && and || operators
 			if (commands[i + 1] != NULL) {
@@ -45,6 +51,37 @@ void shell_loop()
 	} while (status);
 
 	free(line);
+}
+
+void execute_piped_commands(char **commands) 
+{
+	int pipefd[2];
+	pid_t pid;
+	int fd_in = 0;
+	int i = 0;
+	
+	while (commands[i] != NULL) {
+		pipe(pipefd);
+		if ((pid = fork()) == -1) {
+			perror("fork");
+			exit(EXIT_FAILURE);
+		} else if (pid == 0) {
+			dup2(fd_in, 0);
+			if (commands[i + 1] != NULL)
+				dup2(pipefd[1], 1);
+			
+			close(pipefd[0]);
+			char **args = parse_line(commands[i]);
+			execvp(args[0], args);
+			perror("execvp");
+			exit(EXIT_FAILURE);
+		} else {
+			wait(NULL);
+			close(pipefd[1]);
+			fd_in = pipefd[0];
+			i++;
+		}
+	}
 }
 
 int execute_command(char **args) 
