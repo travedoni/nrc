@@ -6,15 +6,16 @@
 #include <string.h>
 #include "shell.h"
 #include "builtins.h"
-#include "utils.h"
+#include "parser.h"
+#include "variables.h"
 
 #define MAX_ARGS 64
 
-void shell_loop()
+void shell_loop() 
 {
 	char *line = NULL;
 	size_t len = 0;
-	char **args;
+	char **commands;
 	int status = 1;
 
 	do {
@@ -23,70 +24,63 @@ void shell_loop()
 			perror("getline");
 			exit(EXIT_FAILURE);
 		}
-		args = parse_line(line);
-		if (args[0] != NULL) {
-			status = execute_command(args);
+		commands = split_operators(line);
+		for (int i = 0; commands[i] != NULL; i++) {
+			char **args = parse_line(commands[i]);
+			if (args[0] != NULL) {
+				status = execute_command(args);
+			}
+			free(args);
+
+			// Handle && and || operators
+			if (commands[i + 1] != NULL) {
+				if (strstr(commands[i], "&&") != NULL && status != 1) {
+					break; // skip the rest of commands after &&
+				} else if (strstr(commands[i], "||") != NULL && status == 1) {
+					break; // skip the rest of commands after ||
+				}
+			}
 		}
-		free(args);
+		free(commands);
 	} while (status);
 
 	free(line);
 }
 
-char **parse_line(char *line) 
-{
-	char **args = malloc(MAX_ARGS * sizeof(char *));
-	char *arg;
-	int i = 0;
-
-	arg = strtok(line, " \t\r\n\a");
-	while (arg != NULL) {
-		if (arg[0] == '$') {
-			char *value = get_var(arg + 1);
-			if (value != NULL) 
-				arg = value;
-
-		}
-		args[i++] = arg;
-		arg = strtok(NULL, " \t\r\n\a");
-	}
-	args[i] = NULL;
-	return args;
-}
-
 int execute_command(char **args) 
 {
-	if (args[0] == NULL) 
-		return 1;
-
 	int i;
-	for (i = 0; i < num_builtins(); i++) {
-		if (strcmp(args[0], builtin_str[i]) == 0) 
-			return (*builtin_func[i])(args);
+
+	if (args[0] == NULL) {
+		// empty command
+		return 1;
 	}
 
-	pid_t pid, wpid;
+	for (i = 0; i < num_builtins(); i++) {
+		if (strcmp(args[0], builtin_str[i]) == 0) {
+			return (*builtin_func[i])(args);
+		}
+	}
+
+	pid_t pid;
 	int status;
 
 	pid = fork();
 	if (pid == 0) {
-		// child process
-		if (execvp(args[0], args) == -1) 
-			perror("rc");
-
+		// Child process
+		if (execvp(args[0], args) == -1) {
+			perror("nrc");
+		}
 		exit(EXIT_FAILURE);
-	} else if (pid < 0 ) {
-		// error forking
-		perror("rc");
+	} else if (pid < 0) {
+		// Error forking
+		perror("nrc");
 	} else {
-		// parent process
+		// Parent process
 		do {
-			wpid = waitpid(pid, &status, WUNTRACED);
+			waitpid(pid, &status, WUNTRACED);
 		} while (!WIFEXITED(status) && !WIFSIGNALED(status));
 	}
 
-	return 1;
-}	
-
-
-
+	return WIFEXITED(status) && WEXITSTATUS(status) == 0;
+}

@@ -6,7 +6,8 @@
 
 #define MAX_ARGS 64
 
-char **parse_line(char *line) {
+char **parse_line(char *line) 
+{
 	char **args = malloc(MAX_ARGS * sizeof(char *));
 	char *arg;
 	int i = 0;
@@ -25,3 +26,18 @@ char **parse_line(char *line) {
 	args[i] = NULL;
 	return args;
 }
+
+char **split_operators(char *line)
+{
+	char **commands = malloc(MAX_ARGS * sizeof(char *));
+	char *command;
+	int i = 0;
+
+	command = strtok(line, "&&||");
+	while (command != NULL) {
+		commands[i++] = command;
+		command = strtok(NULL, "&&||");
+	}
+	commands[i] = NULL;
+	return commands;
+}	

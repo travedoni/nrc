@@ -2,9 +2,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <sys/wait.h>
 #include "builtins.h"
-#include "utils.h"
+#include "variables.h"
 
 char *builtin_str[] = {
 	"set",
@@ -12,7 +13,8 @@ char *builtin_str[] = {
 	"exit",
 	"cd",
 	"echo",
-	"lc"
+	"lc",
+	"cat"
 };
 
 int (*builtin_func[]) (char **) = {
@@ -21,7 +23,8 @@ int (*builtin_func[]) (char **) = {
 	&shell_exit,
 	&shell_cd,
 	&shell_echo,
-	&shell_lc
+	&shell_lc,
+	&shell_cat
 };
 
 int num_builtins() 
@@ -101,3 +104,32 @@ int shell_lc(char **args)
 
 	return 1;
 }
+
+
+int shell_cat(char **args)
+{
+	int fd;
+	char buffer[1024];
+	ssize_t bytes_read;
+
+	if (args[1] == NULL) {
+		fprintf(stderr, "nrc: expected argument to \"cat\"\n");
+		return 1;
+	}
+
+	for (int i = 1; args[i] != NULL; i++) {
+		fd = open(args[i], O_RDONLY);
+		if (fd == -1) {
+			perror("nrc");
+			continue;
+		}
+
+		while ((bytes_read = read(fd, buffer, sizeof(buffer))) > 0) {
+			write(STDOUT_FILENO, buffer, bytes_read);
+		}
+
+		close(fd);
+	}
+
+	return 1;
+}	

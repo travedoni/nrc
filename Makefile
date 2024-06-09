@@ -1,7 +1,7 @@
 CC = gcc
 CFLAGS = -Wall -g
 
-SOURCES = src/main.c src/shell.c src/builtins.c src/utils.c
+SOURCES = src/main.c src/shell.c src/builtins.c src/variables.c src/parser.c
 OBJECTS = $(SOURCES:.c=.o)
 EXECUTABLE = nrc
 
