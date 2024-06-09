@@ -1,5 +1,5 @@
 # Ignore object files
-*.o
+src/*.o
 
 # Ignore the executable
 nrc
