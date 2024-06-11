@@ -8,6 +8,10 @@
 #include <sys/types.h>
 #include <limits.h>
 #include <errno.h>
+#include <pwd.h>
+#include <grp.h>
+#include <time.h>
+#include <dirent.h>
 #include "builtins.h"
 #include "variables.h"
 
@@ -41,6 +45,90 @@ int num_builtins()
 {
 	return sizeof(builtin_str) / sizeof(char *);
 }
+
+void print_file_info(const char *path, const struct dirent *entry, int long_format) 
+{
+	if (long_format) {
+		struct stat file_stat;
+		char full_path[PATH_MAX];
+		snprintf(full_path, sizeof(full_path), "%s/%s", path, entry->d_name);
+		if (stat(full_path, &file_stat) == -1) {
+			perror("stat");
+			return;
+		}
+
+		// File type and permissions
+		printf("%c", S_ISDIR(file_stat.st_mode) ? 'd' : '-');
+		printf("%c", file_stat.st_mode & S_IRUSR ? 'r' : '-');
+		printf("%c", file_stat.st_mode & S_IWUSR ? 'w' : '-');
+		printf("%c", file_stat.st_mode & S_IXUSR ? 'x' : '-');
+		printf("%c", file_stat.st_mode & S_IRGRP ? 'r' : '-');
+		printf("%c", file_stat.st_mode & S_IWGRP ? 'w' : '-');
+		printf("%c", file_stat.st_mode & S_IXGRP ? 'x' : '-');
+		printf("%c", file_stat.st_mode & S_IROTH ? 'r' : '-');
+		printf("%c", file_stat.st_mode & S_IWOTH ? 'w' : '-');
+		printf("%c", file_stat.st_mode & S_IXOTH ? 'x' : '-');
+		printf(" ");
+
+		// Number of hard links
+		printf("%hu ", file_stat.st_nlink);
+
+		// Owner and group
+		struct passwd *pw = getpwuid(file_stat.st_uid);
+		struct group *gr = getgrgid(file_stat.st_gid);
+		printf("%s %s ", pw->pw_name, gr->gr_name);
+
+		// Size
+		printf("%lld ", file_stat.st_size);
+
+		// Last modified time
+		char time_str[20];
+		strftime(time_str, sizeof(time_str), "%b %d %H:%M", localtime(&file_stat.st_mtime));
+		printf("%s ", time_str);
+
+		// File name
+		printf("%s\n", entry->d_name);
+	} else {
+		printf("%s  ", entry->d_name);
+	}
+}
+
+void list_directory(const char *path, int all, int long_format, int recursive) 
+{
+	DIR *dir = opendir(path);
+	if (!dir) {
+		perror("opendir");
+		return;
+	}
+
+	struct dirent *entry;
+	while ((entry = readdir(dir)) != NULL) {
+		if (!all && entry->d_name[0] == '.') {
+			continue;
+		}
+
+		print_file_info(path, entry, long_format);
+	}
+
+	if (!long_format) 
+		printf("\n");
+
+	closedir(dir);
+
+	if (recursive) {
+		dir = opendir(path);
+		while ((entry = readdir(dir)) != NULL) {
+			if (entry->d_type == DT_DIR && strcmp(entry->d_name, ".") != 0 &&
+			strcmp(entry->d_name, "..") != 0) {
+				char next_path[PATH_MAX];
+				snprintf(next_path, sizeof(next_path), "%s/%s", path, entry->d_name);
+				printf("\n%s:\n", next_path);
+				list_directory(next_path, all, long_format, recursive);
+			}
+		}
+		closedir(dir);
+	}
+}	
 
 int shell_set(char **args) 
 {
@@ -97,20 +185,35 @@ int shell_echo(char **args)
 
 int shell_lc(char **args) 
 {
-	pid_t pid = fork();
-	if (pid == 0) {
-		if (args[1] == NULL) {
-			execlp("ls", "ls", NULL);
+	int all = 0;
+	int long_format = 0;
+	int recursive = 0;
+	char *path = ".";
+
+	for (int i = 1; args[i] != NULL; i++) {
+		if (args[i][0] == '-') {
+			for (char *c = args[i] + 1; *c != '\0'; c++) {
+				switch (*c) {
+					case 'a':
+						all = 1;
+						break;
+					case 'l':
+						long_format = 1;
+						break;
+					case 'R':
+						recursive = 1;
+						break;
+					default:
+						fprintf(stderr, "nrc: lc: invalid option -- '%c'\n", *c);
+						return 1;
+				}
+			}
 		} else {
-			execvp("ls", args);
+			path = args[i];
 		}
-		perror("nrc");
-		exit(EXIT_FAILURE);
-	} else if (pid < 0) {
-		perror("nrc");
-	} else {
-		wait(NULL);
 	}
+
+	list_directory(path, all, long_format, recursive);
 
 	return 1;
 }
