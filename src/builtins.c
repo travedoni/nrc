@@ -7,6 +7,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <limits.h>
+#include <errno.h>
 #include "builtins.h"
 #include "variables.h"
 
@@ -182,12 +183,33 @@ int shell_mkdir(char **args)
 
 int shell_pwd(char **args)
 {
+	int logical = 1;
 	char cwd[PATH_MAX];
-	if (getcwd(cwd, sizeof(cwd)) != NULL) {
-		printf("%s\n", cwd);
-		return 1;
-	} else {
-		perror("nrc");
-		return 1;
+	char *env_pwd = getenv("PWD");
+
+	// Parse flag
+	for (int i = 1; args[i] != NULL; i++) {
+		if (strcmp(args[i], "-P") == 0) {
+			logical = 0;
+		} else if (strcmp(args[i], "-L") == 0) {
+			logical = 1;
+		} else {
+			fprintf(stderr, "nrc: pwd: invalid option --'%s'\n", args[i]);
+			return 1;
+		}
 	}
+
+	if (logical && env_pwd != NULL) {
+		printf("%s\n", env_pwd);
+	} else {
+		if (getcwd(cwd, sizeof(cwd)) != NULL) {
+			printf("%s\n", cwd);
+			return 1;
+		} else {
+			perror("nrc");
+			return 1;
+		}
+	}
+
+	return 1;
 }
