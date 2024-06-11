@@ -2,6 +2,7 @@
 #define PARSER_H
 
 char **parse_line(char *line);
+char **expand_patterns(char **args);
 char **split_commands(char *line);
 char **split_operators(char *line);
 char **split_pipes(char *line);

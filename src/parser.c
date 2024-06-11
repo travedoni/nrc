@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <glob.h>
 #include "parser.h"
 #include "variables.h" 
 
@@ -9,22 +10,49 @@
 char **parse_line(char *line) 
 {
 	char **args = malloc(MAX_ARGS * sizeof(char *));
-	char *arg;
 	int i = 0;
+	int in_quote = 0;
+	char *start = line;
 
-	arg = strtok(line, " \t\r\n\a");
-	while (arg != NULL) {
-		if (arg[0] == '$') {
-			char *value = get_var(arg + 1);
-			if (value != NULL) {
-				arg = value;
-			}
+	while (*line) {
+		if (*line == '\'') {
+			in_quote = !in_quote;
+			memmove(line, line + 1, strlen(line));
+		} else if (!in_quote && (*line == ' ' || *line == '\t' || *line == '\n')) {
+			*line = '\0';
+			if (start != line) 
+				args[i++] = strdup(start);
+
+			start = line + 1;
 		}
-		args[i++] = arg;
-		arg = strtok(NULL, " \t\r\n\a");
+		line++;
 	}
+	if (start != line && *start != '\0') 
+		args[i++] = strdup(start);
+
 	args[i] = NULL;
 	return args;
+}	
+
+char **expand_patterns(char **args) 
+{
+	glob_t globbuf;
+	char **expanded_args = malloc(MAX_ARGS * sizeof(char *));
+	int i, j = 0;
+		
+	for (i = 0; args[i] != NULL; i++) {
+		if (strpbrk(args[i], "*?[") != NULL) {
+			glob(args[i], 0, NULL, &globbuf);
+			for (size_t k = 0; k < globbuf.gl_pathc; k++) {
+				expanded_args[j++] = strdup(globbuf.gl_pathv[k]);
+			}
+			globfree(&globbuf);
+		} else {
+			expanded_args[j++] = strdup(args[i]);
+		}
+	}
+	expanded_args[j] = NULL;
+	return expanded_args;
 }
 
 char **split_commands(char *line) 

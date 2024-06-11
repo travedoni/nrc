@@ -14,6 +14,7 @@
 #include <dirent.h>
 #include "builtins.h"
 #include "variables.h"
+#include "parser.h"
 
 char *builtin_str[] = {
 	"set",
@@ -45,6 +46,59 @@ int num_builtins()
 {
 	return sizeof(builtin_str) / sizeof(char *);
 }
+
+void list_directory(const char *path, int all, int long_format, int recursive) 
+{
+	struct stat path_stat;
+	if (stat(path, &path_stat) != 0) {
+		perror("stat");
+		return;
+	}
+	
+	if (S_ISDIR(path_stat.st_mode)) {
+		// Handle directory
+		DIR *dir = opendir(path);
+		if (!dir) {
+			perror("opendir");
+			return;
+		}
+
+		struct dirent *entry;
+		while ((entry = readdir(dir)) != NULL) {
+			if (!all && entry->d_name[0] == '.') {
+				continue;
+			}
+
+			print_file_info(path, entry, long_format);
+		}
+
+		if (!long_format) 
+			printf("\n");
+
+		closedir(dir);
+
+		if (recursive) {
+			dir = opendir(path);
+			if (!dir) {
+				perror("opendir");
+				return;
+			}
+			while ((entry = readdir(dir)) != NULL) {
+				if (entry->d_type == DT_DIR && strcmp(entry->d_name, ".") != 0 &&
+						strcmp(entry->d_name, "..") != 0) {
+					char next_path[PATH_MAX];
+					snprintf(next_path, sizeof(next_path), "%s/%s", path, entry->d_name);
+					printf("\n%s:\n", next_path);
+					list_directory(next_path, all, long_format, recursive);
+				}
+			}
+			closedir(dir);
+		}
+	} else {
+		// Handle file
+		print_file_info(".", NULL, long_format);
+	}
+}	
 
 void print_file_info(const char *path, const struct dirent *entry, int long_format) 
 {
@@ -92,43 +146,6 @@ void print_file_info(const char *path, const struct dirent *entry, int long_form
 		printf("%s  ", entry->d_name);
 	}
 }
-
-void list_directory(const char *path, int all, int long_format, int recursive) 
-{
-	DIR *dir = opendir(path);
-	if (!dir) {
-		perror("opendir");
-		return;
-	}
-
-	struct dirent *entry;
-	while ((entry = readdir(dir)) != NULL) {
-		if (!all && entry->d_name[0] == '.') {
-			continue;
-		}
-
-		print_file_info(path, entry, long_format);
-	}
-
-	if (!long_format) 
-		printf("\n");
-
-	closedir(dir);
-
-	if (recursive) {
-		dir = opendir(path);
-		while ((entry = readdir(dir)) != NULL) {
-			if (entry->d_type == DT_DIR && strcmp(entry->d_name, ".") != 0 &&
-			strcmp(entry->d_name, "..") != 0) {
-				char next_path[PATH_MAX];
-				snprintf(next_path, sizeof(next_path), "%s/%s", path, entry->d_name);
-				printf("\n%s:\n", next_path);
-				list_directory(next_path, all, long_format, recursive);
-			}
-		}
-		closedir(dir);
-	}
-}	
 
 int shell_set(char **args) 
 {
@@ -190,9 +207,12 @@ int shell_lc(char **args)
 	int recursive = 0;
 	char *path = ".";
 
-	for (int i = 1; args[i] != NULL; i++) {
-		if (args[i][0] == '-') {
-			for (char *c = args[i] + 1; *c != '\0'; c++) {
+	// Parse flags and arguments
+	char **expanded_args = expand_patterns(args);
+
+	for (int i = 1; expanded_args[i] != NULL; i++) {
+		if (expanded_args[i][0] == '-') {
+			for (char *c = expanded_args[i] + 1; *c != '\0'; c++) {
 				switch (*c) {
 					case 'a':
 						all = 1;
@@ -209,7 +229,7 @@ int shell_lc(char **args)
 				}
 			}
 		} else {
-			path = args[i];
+			path = expanded_args[i];
 		}
 	}
 
