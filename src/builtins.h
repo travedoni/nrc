@@ -8,6 +8,8 @@ int shell_cd(char **args);
 int shell_echo(char **args);
 int shell_lc(char **args);
 int shell_cat(char **args);
+int shell_touch(char **args);
+int shell_mkdir(char **args);
 int num_builtins();
 
 extern char *builtin_str[];

@@ -6,7 +6,7 @@ The New rc shell
 
 - Execute common commands
 - Basic variable handling
-- Built-in commands: `set`, `get`, `exit`, `cd`, `echo`, `lc`
+- Built-in commands: `set`, `get`, `exit`, `cd`, `echo`, `lc`, `touch`, `mkdir`
 
 # Building
 

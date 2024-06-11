@@ -27,16 +27,33 @@ char **parse_line(char *line)
 	return args;
 }
 
+char **split_commands(char *line) 
+{
+	char **commands = malloc(MAX_ARGS * sizeof(char *));
+	char *command;
+	int i = 0;
+	char *saveptr;
+
+	command = strtok_r(line, ";", &saveptr);
+	while (command != NULL) {
+		commands[i++] = command;
+		command = strtok_r(NULL, ";", &saveptr);
+	}
+	commands[i] = NULL;
+	return commands;
+}
+
 char **split_operators(char *line)
 {
 	char **commands = malloc(MAX_ARGS * sizeof(char *));
 	char *command;
 	int i = 0;
+	char *saveptr;
 
-	command = strtok(line, "&&||");
+	command = strtok_r(line, "&&||", &saveptr);
 	while (command != NULL) {
 		commands[i++] = command;
-		command = strtok(NULL, "&&||");
+		command = strtok_r(NULL, "&&||", &saveptr);
 	}
 	commands[i] = NULL;
 	return commands;
@@ -47,13 +64,25 @@ char **split_pipes(char *line)
 	char **commands = malloc(MAX_ARGS * sizeof(char *));
 	char *command;
 	int i = 0;
+	char *saveptr;
 
-	command = strtok(line, "|");
+	command = strtok_r(line, "|", &saveptr);
 	while (command != NULL) {
 		commands[i++] = command;
-		command = strtok(NULL, "|");
+		command = strtok_r(NULL, "|", &saveptr);
 	}
 	commands[i] = NULL;
 	return commands;
 }
 
+char *extract_commands(char *line)
+{
+	char *start = strchr(line, '{');
+	char *end = strrchr(line, '}');
+	if (start && end && end > start) {
+		*end = '\0';
+		return strdup(start + 1);
+	}
+	
+	return NULL;
+}

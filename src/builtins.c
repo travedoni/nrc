@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/wait.h>
+#include <sys/stat.h>
 #include "builtins.h"
 #include "variables.h"
 
@@ -14,7 +15,9 @@ char *builtin_str[] = {
 	"cd",
 	"echo",
 	"lc",
-	"cat"
+	"cat",
+	"touch",
+	"mkdir"
 };
 
 int (*builtin_func[]) (char **) = {
@@ -24,7 +27,9 @@ int (*builtin_func[]) (char **) = {
 	&shell_cd,
 	&shell_echo,
 	&shell_lc,
-	&shell_cat
+	&shell_cat,
+	&shell_touch,
+	&shell_mkdir
 };
 
 int num_builtins() 
@@ -133,3 +138,40 @@ int shell_cat(char **args)
 
 	return 1;
 }	
+
+int shell_touch(char **args)
+{
+	if (args[1] == NULL) {
+		fprintf(stderr, "nrc: expected argument to \"touch\"\n");
+		return 1;
+	}
+
+	for (int i = 1; args[i] != NULL; i++) {
+		int fd = open(args[i], O_WRONLY | O_CREAT, 0644);
+		if (fd == -1) {
+			perror("nrc");
+			return 1;
+		}
+		close(fd);
+	}
+
+	return 1;
+}
+
+
+int shell_mkdir(char **args) 
+{
+	if (args[1] == NULL) {
+		fprintf(stderr, "nrc: expected argument to \"mkdir\"\n");
+		return 1;
+	}
+
+	for (int i = 1; args[i] != NULL; i++) {
+		if (mkdir(args[i], 0755) != 0) {
+			perror("nrc");
+			return 1;
+		}
+	}
+
+	return 1;
+}
