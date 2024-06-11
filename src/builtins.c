@@ -5,6 +5,8 @@
 #include <fcntl.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
+#include <sys/types.h>
+#include <limits.h>
 #include "builtins.h"
 #include "variables.h"
 
@@ -17,7 +19,8 @@ char *builtin_str[] = {
 	"lc",
 	"cat",
 	"touch",
-	"mkdir"
+	"mkdir",
+	"pwd"
 };
 
 int (*builtin_func[]) (char **) = {
@@ -29,7 +32,8 @@ int (*builtin_func[]) (char **) = {
 	&shell_lc,
 	&shell_cat,
 	&shell_touch,
-	&shell_mkdir
+	&shell_mkdir,
+	&shell_pwd
 };
 
 int num_builtins() 
@@ -174,4 +178,16 @@ int shell_mkdir(char **args)
 	}
 
 	return 1;
+}
+
+int shell_pwd(char **args)
+{
+	char cwd[PATH_MAX];
+	if (getcwd(cwd, sizeof(cwd)) != NULL) {
+		printf("%s\n", cwd);
+		return 1;
+	} else {
+		perror("nrc");
+		return 1;
+	}
 }
