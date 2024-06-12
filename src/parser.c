@@ -7,6 +7,34 @@
 
 #define MAX_ARGS 64
 
+char *get_subscript(char *arg)
+{
+	char *open_paren = strchr(arg, '(');
+	if (open_paren) {
+		char *close_paren = strchr(open_paren, ')');
+		if (close_paren) {
+			*close_paren = '\0';
+
+			char *subscript = open_paren + 1;
+			while (*subscript == ' ') subscript++;
+			char *end = close_paren - 1;
+			while (end > subscript && *end == ' ') end --;
+			*(end + 1) = '\0';
+
+			int index = atoi(open_paren + 1) - 1;
+			char *var_name = strndup(arg, open_paren - arg);
+			char **value = get_var(var_name);
+			if (value && index >= 0 && index < get_var_length(var_name)) {
+				free(var_name);
+				return strdup(value[index]);
+			}
+			free(var_name);
+		}
+	}
+	
+	return arg;
+}
+
 char *substitute_vars(char *arg) 
 {
 	if (arg[0] == '$') {
@@ -19,11 +47,17 @@ char *substitute_vars(char *arg)
 		} else if (var_name[0] == '"') {
 			return concatenate_var(var_name + 1);
 		} else {
-			return get_subscript(var_name);
+			char **value = get_var(var_name);
+			if (value) {
+				char *result = concatenate_var(var_name);
+				return result;
+			} else {
+				return get_subscript(var_name);
+			}
 		}
 	}
 
-	return arg;
+	return strdup(arg);
 }
 
 char **parse_line(char *line) 
@@ -132,27 +166,6 @@ char *extract_commands(char *line)
 	}
 	
 	return NULL;
-}
-
-char *get_subscript(char *arg)
-{
-	char *open_paren = strchr(arg, '(');
-	if (open_paren) {
-		char *close_paren = strchr(open_paren, ')');
-		if (close_paren) {
-			*close_paren = '\0';
-			int index = atoi(open_paren + 1) - 1;
-			char *var_name = strndup(arg, open_paren - arg);
-			char **value = get_var(var_name);
-			if (value && index >= 0 && index < get_var_length(var_name)) {
-				free(var_name);
-				return strdup(value[index]);
-			}
-			free(var_name);
-		}
-	}
-	
-	return arg;
 }
 
 

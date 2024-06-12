@@ -10,8 +10,6 @@
 #include "parser.h"
 #include "variables.h"
 
-#define MAX_ARGS 64
-
 void shell_loop() 
 {
 	char *line = NULL;
@@ -26,10 +24,21 @@ void shell_loop()
 			exit(EXIT_FAILURE);
 		}
 
-		if (strchr(line, '=')) {
-			char *var_name = strtok(line, "=");
-			char *var_value = strtok(NULL, "\n");
+		char *equals_sign = strchr(line, '=');
+		if (equals_sign) {
+			*equals_sign = '\0';
+			char *var_name = line;
+			char *var_value = equals_sign + 1;
+
+			var_name = strtok(var_name, " \t\r\n\a");
+			var_value = strtok(var_value, "\n");
+
 			if (var_name && var_value) {
+				if (var_value[0] == '(' && var_value[strlen(var_value) - 1] == ')') {
+					var_value[strlen(var_value) - 1] = '\0';
+					var_value++;
+				}
+
 				char **values = parse_line(var_value);
 				int length = 0;
 				while (values[length] != NULL) {

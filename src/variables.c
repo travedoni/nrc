@@ -1,9 +1,9 @@
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include "variables.h"
 
 #define MAX_VAR 100
-#define MAX_VAR_LENGTH 100
 
 static Variable variables[MAX_VAR];
 static int num_vars = 0;
@@ -22,6 +22,9 @@ void set_var(const char *name, char **value, int length)
 { 
 	Variable *var = find_var(name);
 	if (var) {
+		for (int i = 0; i < var->length; i++) {
+			free(var->value[i]);
+		}
 		free(var->value);
 	} else {
 		var = &variables[num_vars++];
