@@ -7,6 +7,25 @@
 
 #define MAX_ARGS 64
 
+char *substitute_vars(char *arg) 
+{
+	if (arg[0] == '$') {
+		char *var_name = arg + 1;
+		if (var_name[0] == '#') {
+			int length = get_var_length(var_name + 1);
+			char *length_str = malloc(10);
+			snprintf(length_str, 10, "%d", length);
+			return length_str;
+		} else if (var_name[0] == '"') {
+			return concatenate_var(var_name + 1);
+		} else {
+			return get_subscript(var_name);
+		}
+	}
+
+	return arg;
+}
+
 char **parse_line(char *line) 
 {
 	char **args = malloc(MAX_ARGS * sizeof(char *));
@@ -21,14 +40,14 @@ char **parse_line(char *line)
 		} else if (!in_quote && (*line == ' ' || *line == '\t' || *line == '\n')) {
 			*line = '\0';
 			if (start != line) 
-				args[i++] = strdup(start);
+				args[i++] = substitute_vars(strdup(start));
 
 			start = line + 1;
 		}
 		line++;
 	}
 	if (start != line && *start != '\0') 
-		args[i++] = strdup(start);
+		args[i++] = substitute_vars(strdup(start));
 
 	args[i] = NULL;
 	return args;
@@ -114,3 +133,26 @@ char *extract_commands(char *line)
 	
 	return NULL;
 }
+
+char *get_subscript(char *arg)
+{
+	char *open_paren = strchr(arg, '(');
+	if (open_paren) {
+		char *close_paren = strchr(open_paren, ')');
+		if (close_paren) {
+			*close_paren = '\0';
+			int index = atoi(open_paren + 1) - 1;
+			char *var_name = strndup(arg, open_paren - arg);
+			char **value = get_var(var_name);
+			if (value && index >= 0 && index < get_var_length(var_name)) {
+				free(var_name);
+				return strdup(value[index]);
+			}
+			free(var_name);
+		}
+	}
+	
+	return arg;
+}
+
+

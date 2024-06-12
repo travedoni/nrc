@@ -26,6 +26,21 @@ void shell_loop()
 			exit(EXIT_FAILURE);
 		}
 
+		if (strchr(line, '=')) {
+			char *var_name = strtok(line, "=");
+			char *var_value = strtok(NULL, "\n");
+			if (var_name && var_value) {
+				char **values = parse_line(var_value);
+				int length = 0;
+				while (values[length] != NULL) {
+					length++;
+				}
+				set_var(var_name, values, length);
+				free(values);
+				continue;
+			}
+		}
+
 		char *grouped_commands = extract_commands(line);
 		if (grouped_commands) {
 			char *redirect = strchr(line, '>');
@@ -48,7 +63,9 @@ void shell_loop()
 
 		commands = split_operators(line);
 		for (int i = 0; commands[i] != NULL; i++) {
-			status = execute_line(commands[i]);
+			char *substituted_command = substitute_vars(commands[i]);
+			status = execute_line(substituted_command);
+			free(substituted_command);
 			if (status == 0) 
 				break;
 		}

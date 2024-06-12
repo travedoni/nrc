@@ -1,7 +1,19 @@
 #ifndef VARIABLES_H
 #define VARIABLES_H
 
-void set_var(char *name, char *value);
-char *get_var(char *name);
+#include <stdlib.h>
+#include <string.h>
+
+typedef struct {
+	char *name;
+	char **value;
+	int length;
+} Variable;
+
+Variable *find_var(const char *name);
+void set_var(const char *name, char **value, int length);
+char **get_var(const char *name);
+int get_var_length(const char *name); 
+char *concatenate_var(const char *name);
 
 #endif

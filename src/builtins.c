@@ -153,7 +153,7 @@ int shell_set(char **args)
 		fprintf(stderr, "nrc: expected variable name and value\n");
 		return 1;
 	}
-	set_var(args[1], args[2]);
+	set_var(args[1], &args[2], 1);
 	return 1;
 }
 
