@@ -10,11 +10,82 @@
 #include "parser.h"
 #include "variables.h"
 
+int process_command(char *line) 
+{
+	char **commands;
+	int status = 1;
+
+	// Check if it's a variable assignment
+	char *equals_sign = strchr(line, '=');
+	if (equals_sign) {
+		*equals_sign = '\0';
+		char *var_name = line;
+		char *var_value = equals_sign + 1;
+
+		// Remove first and ending spaces
+		var_name = strtok(var_name, " \t\r\n\a");
+		var_value = strtok(var_value, "\n");
+
+		if (var_name && var_value) {
+			// Check if the value is inside parentheses
+			if (var_value[0] == '(' && var_value[strlen(var_value) - 1] == ')') {
+				var_value[strlen(var_value) - 1] = '\0';
+				var_value++;
+			}
+
+			// Split the value into a list of strings
+			char **values = parse_line(var_value);
+			int length = 0;
+			while (values[length] != NULL) {
+				length++;
+			}
+			set_var(var_name, values, length);
+
+			free(values);
+			return status;
+		}
+	}
+
+	// Extract grouped commands ({ ... } > file)
+	char *grouped_commands = extract_commands(line);
+	if (grouped_commands) {
+		char *redirect = strchr(line, '>');
+		if (redirect) {
+			char *filename = strtok(redirect + 1, " \t\r\n\a");
+			int fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+			if (fd == -1) {
+				perror("open");
+				free(grouped_commands);
+				return status;
+			}
+			status = execute_with_redirection(grouped_commands, fd);
+			close(fd);
+		} else {
+			status = execute_grouped_commands(grouped_commands);
+		}
+		free(grouped_commands);
+		return status;
+	}
+
+	// Split and execute commands with operators (&&, ||)
+	commands = split_operators(line);
+	for (int i = 0; commands[i] != NULL; i++) {
+		// Substitute variables in the command
+		char *substituted_command = substitute_vars(commands[i]);
+
+		status = execute_line(substituted_command);
+		free(substituted_command);
+		if (status == 0) 
+			break;
+	}
+	free(commands);
+	return status;
+}
+
 void shell_loop() 
 {
 	char *line = NULL;
 	size_t len = 0;
-	char **commands;
 	int status = 1;
 
 	do {
@@ -24,61 +95,8 @@ void shell_loop()
 			exit(EXIT_FAILURE);
 		}
 
-		char *equals_sign = strchr(line, '=');
-		if (equals_sign) {
-			*equals_sign = '\0';
-			char *var_name = line;
-			char *var_value = equals_sign + 1;
+		process_command(line);
 
-			var_name = strtok(var_name, " \t\r\n\a");
-			var_value = strtok(var_value, "\n");
-
-			if (var_name && var_value) {
-				if (var_value[0] == '(' && var_value[strlen(var_value) - 1] == ')') {
-					var_value[strlen(var_value) - 1] = '\0';
-					var_value++;
-				}
-
-				char **values = parse_line(var_value);
-				int length = 0;
-				while (values[length] != NULL) {
-					length++;
-				}
-				set_var(var_name, values, length);
-				free(values);
-				continue;
-			}
-		}
-
-		char *grouped_commands = extract_commands(line);
-		if (grouped_commands) {
-			char *redirect = strchr(line, '>');
-			if (redirect) {
-				char *filename = strtok(redirect + 1, " \t\r\n\a");
-				int fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-				if (fd == -1) {
-					perror("open");
-					free(grouped_commands);
-					continue;
-				}
-				status = execute_with_redirection(grouped_commands, fd);
-				close(fd);
-			} else {
-				status = execute_grouped_commands(grouped_commands);
-			}
-			free(grouped_commands);
-			continue;
-		}
-
-		commands = split_operators(line);
-		for (int i = 0; commands[i] != NULL; i++) {
-			char *substituted_command = substitute_vars(commands[i]);
-			status = execute_line(substituted_command);
-			free(substituted_command);
-			if (status == 0) 
-				break;
-		}
-		free(commands);
 	} while (status);
 
 	free(line);

@@ -45,14 +45,16 @@ char *substitute_vars(char *arg)
 			snprintf(length_str, 10, "%d", length);
 			return length_str;
 		} else if (var_name[0] == '"') {
-			return concatenate_var(var_name + 1);
+			char *result =  concatenate_var(var_name + 1);
+			return result;
+		} else if (strchr(var_name, '(')) {
+			char *result = get_subscript(var_name);
+			return result;
 		} else {
 			char **value = get_var(var_name);
 			if (value) {
 				char *result = concatenate_var(var_name);
 				return result;
-			} else {
-				return get_subscript(var_name);
 			}
 		}
 	}
@@ -71,6 +73,11 @@ char **parse_line(char *line)
 		if (*line == '\'') {
 			in_quote = !in_quote;
 			memmove(line, line + 1, strlen(line));
+		} else if (*line == '(') {
+			*line = ' ';
+			memmove(line, line + 1, strlen(line));
+		} else if (*line == ')') {
+			*line = '\0';
 		} else if (!in_quote && (*line == ' ' || *line == '\t' || *line == '\n')) {
 			*line = '\0';
 			if (start != line) 

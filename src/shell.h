@@ -1,6 +1,7 @@
 #ifndef SHELL_H
 #define SHELL_H
 
+int process_command(char *line);
 void shell_loop();
 int execute_command(char **args);
 int execute_line(char *line);
