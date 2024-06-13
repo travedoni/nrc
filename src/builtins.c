@@ -163,9 +163,9 @@ int shell_get(char **args)
 		fprintf(stderr, "nrc: expected variable name\n");
 		return 1;
 	}
-	char **value = get_var(args[1]);
+	char *value = concatenate_var(args[1]);
 	if (value != NULL) {
-		printf("%s\n", *value);
+		printf("%c\n", *value);
 	} else {
 		fprintf(stderr, "nrc: variable not found\n");
 	}

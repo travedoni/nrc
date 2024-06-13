@@ -7,6 +7,71 @@
 
 #define MAX_ARGS 64
 
+char *concatenate(char *left, char *right) 
+{
+	size_t len_left = strlen(left);
+	size_t len_right = strlen(right);
+	char *result = malloc(len_left + len_right + 1);
+	strcpy(result, left);
+	strcat(result, right);
+	return result;
+}
+
+char **concatenate_lists(char **left, char **right, int left_len, int right_len)
+{
+	char **result;
+	int result_len = left_len > right_len ? left_len : right_len;
+	result = malloc((result_len + 1) * sizeof(char *));
+
+	if (left_len == right_len) {
+		for (int i = 0; i < left_len; i++) {
+			result[i] = concatenate(left[i], right[i]);
+		}
+	} else if (left_len == 1) {
+		for (int i = 0; i < right_len; i++) {
+			result[i] = concatenate(left[0], right[i]);
+		}
+	} else if (right_len == 1) {
+		for (int i = 0; i < left_len; i++) {
+			result[i] = concatenate(left[i], right[0]);
+		}
+	} else {
+		fprintf(stderr, "nrc: invalid concatenation\n");
+		free(result);
+		return NULL;
+	}
+
+	result[result_len] = NULL;
+	return result;
+}
+
+char **parse_concatenation(char *arg)
+{
+	char *caret = strchr(arg, '^');
+	if (!caret) {
+		return parse_line(arg);
+	}
+
+	*caret = '\0';
+	char *left_part = arg;
+	char *right_part = caret + 1;
+
+	char **left_list = parse_line(left_part);
+	char **right_list = parse_line(right_part);
+
+	int left_len = 0;
+	int right_len = 0;
+	while (left_list[left_len] != NULL) left_len++;
+	while (right_list[right_len] != NULL) right_len++;
+
+	char **result = concatenate_lists(left_list, right_list, left_len, right_len);
+
+	free(left_list);
+	free(right_list);
+
+	return result;
+}	
+
 char *get_subscript(char *arg)
 {
 	char *open_paren = strchr(arg, '(');
