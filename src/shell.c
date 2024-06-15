@@ -10,7 +10,7 @@
 #include "parser.h"
 #include "variables.h"
 
-int process_command(char *line) 
+int process_command(char *line)
 {
 	char **commands;
 	int status = 1;
@@ -70,19 +70,63 @@ int process_command(char *line)
 	// Split and execute commands with operators (&&, ||)
 	commands = split_operators(line);
 	for (int i = 0; commands[i] != NULL; i++) {
-		// Substitute variables in the command
-		char *substituted_command = substitute_vars(commands[i]);
+        // Separate command form args
+        char *command = strtok(commands[i], " ");
+        if (!command)
+            continue;
 
-		status = execute_line(substituted_command);
-		free(substituted_command);
-		if (status == 0) 
-			break;
+        char *arguments = strtok(NULL, "\0");
+        char **parsed_command;
+		// Substitute variables in the command
+        if (arguments) {
+            parsed_command = parse_concatenation(arguments);
+        } else {
+            parsed_command = malloc(2 * sizeof(char *));
+            parsed_command[0] = strdup(command);
+            parsed_command[1] = NULL;
+        }
+
+        if (parsed_command) {
+            // Combined the whole thing back
+            int arg_count = count_args(parsed_command);
+            char **final_command = malloc((arg_count + 2) * sizeof(char *));
+            if (!final_command) {
+                perror("malloc");
+                return 1;
+            }
+            final_command[0] = strdup(command);
+            for (int j = 0; j < arg_count; j++) {
+                    final_command[j + 1] = parsed_command[j];
+            }
+            final_command[arg_count + 1] = NULL;
+
+            status = execute_line(final_command);
+            free(final_command[0]);
+            for (int i = 1; final_command[i] != NULL; i++) {
+                free(final_command[i]);
+            }
+            free(final_command);
+            free(parsed_command);
+
+            if ((status == 0 && strstr(commands[i], "&&")) ||
+                    (status != 0 && strstr(commands[i], "||")))
+                break;
+        }
 	}
 	free(commands);
 	return status;
 }
 
-void shell_loop() 
+int count_args(char **args)
+{
+    int count = 0;
+    while (args[count] != NULL) {
+        count++;
+    }
+    return count;
+}
+
+void shell_loop()
 {
 	char *line = NULL;
 	size_t len = 0;
@@ -102,43 +146,41 @@ void shell_loop()
 	free(line);
 }
 
-int execute_line(char *line)
+int execute_line(char **args)
 {
-	char **commands = split_operators(line);
-	int status = 1;
+    if (args[0] == NULL)
+        return 1;
 
-	for (int i = 0; commands[i] != NULL; i++) {
-		char **pipe_segments = split_pipes(commands[i]);
-		if (pipe_segments[1] == NULL) {
-			char **args = parse_line(pipe_segments[0]);
-			if (args[0] != NULL) 
-				status = execute_command(args);
+    for (int i = 0; i < num_builtins(); i++) {
+            if (strcmp(args[0], builtin_str[i]) == 0)
+                    return (*builtin_func[i])(args);
+    }
 
-			free(args);
-		} else {
-			status = execute_piped_commands(pipe_segments);
-		}
-		free(pipe_segments);
+    pid_t pid;
+    int status;
 
-		// Handle && and || operators
-		if (commands[i + 1] != NULL) {
-			if (strstr(commands[i], "&&") != NULL && status != 1) {
-				break;
-			} else if (strstr(commands[i], "||") != NULL && status != 1) {
-				break;
-			}
-		}
-	}
-	free(commands);
+    pid = fork();
+    if (pid == 0) {
+            if (execvp(args[0], args) == -1)
+                    perror("nrc");
 
-	return status;
+            exit(EXIT_FAILURE);
+    } else if (pid < 0) {
+            perror("nrc");
+    } else {
+                do {
+                        waitpid(pid, &status, WUNTRACED);
+                } while (!WIFEXITED(status) && !WIFSIGNALED(status));
+    }
+
+    return 1;
 }
 
-int execute_grouped_commands(char *commands) 
+int execute_grouped_commands(char *commands)
 {
 	char *cmd;
 	int status = 1;
-	
+
 	cmd = strtok(commands, ";");
 	while (cmd != NULL) {
 		char **args = parse_line(cmd);
@@ -168,24 +210,24 @@ int execute_with_redirection(char *commands, int fd)
 	} else {
 		waitpid(pid, &status, 0);
 	}
-	
-	return WIFEXITED(status) && WEXITSTATUS(status) == 0;
-}	
 
-int execute_piped_commands(char **commands) 
+	return WIFEXITED(status) && WEXITSTATUS(status) == 0;
+}
+
+int execute_piped_commands(char **commands)
 {
 	int pipefd[2];
 	pid_t pid;
 	int fd_in = 0;
 	int i = 0;
 	int status = 0;
-	
+
 	while (commands[i] != NULL) {
 		if (pipe(pipefd) == -1) {
 			perror("pipe");
 			return -1;
-		} 
-		
+		}
+
 		if ((pid = fork()) == -1) {
 			perror("fork");
 			return -1;
@@ -193,7 +235,7 @@ int execute_piped_commands(char **commands)
 			dup2(fd_in, 0);
 			if (commands[i + 1] != NULL)
 				dup2(pipefd[1], 1);
-			
+
 			close(pipefd[0]);
 			char **args = parse_line(commands[i]);
 			if (execvp(args[0], args) == -1) {
@@ -202,7 +244,7 @@ int execute_piped_commands(char **commands)
 			}
 		} else {
 			wait(&status);
-			if (WIFEXITED(status) && WEXITSTATUS(status) != 0) 
+			if (WIFEXITED(status) && WEXITSTATUS(status) != 0)
 				return -1;
 
 			close(pipefd[1]);
@@ -214,7 +256,7 @@ int execute_piped_commands(char **commands)
 	return status;
 }
 
-int execute_command(char **args) 
+int execute_command(char **args)
 {
 	int i;
 

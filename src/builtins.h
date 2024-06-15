@@ -1,7 +1,6 @@
 #ifndef BUILTINS_H
 #define BUILTINS_H
 
-void print_file_info(const char *path, const struct dirent *entry, int long_format);
 
 int shell_set(char **args);
 int shell_get(char **args);
@@ -15,6 +14,7 @@ int shell_mkdir(char **args);
 int shell_pwd(char **args);
 int num_builtins();
 void list_directory(const char *path, int all, int long_format, int recursive);
+
 
 extern char *builtin_str[];
 extern int (*builtin_func[]) (char **);

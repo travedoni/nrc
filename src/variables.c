@@ -19,7 +19,7 @@ Variable *find_var(const char *name)
 }
 
 void set_var(const char *name, char **value, int length)
-{ 
+{
 	Variable *var = find_var(name);
 	if (var) {
 		for (int i = 0; i < var->length; i++) {
@@ -35,21 +35,21 @@ void set_var(const char *name, char **value, int length)
 		var->value[i] = strdup(value[i]);
 	}
 	var->length = length;
-}	
+}
 
 char **get_var(const char *name)
 {
 	Variable *var = find_var(name);
 	if (var)
 		return var->value;
-	
+
 	return NULL;
 }
 
 int get_var_length(const char *name)
 {
 	Variable *var = find_var(name);
-	if (var) 
+	if (var)
 		return var->length;
 
 	return 0;
@@ -59,15 +59,23 @@ char *concatenate_var(const char *name)
 {
 	Variable *var = find_var(name);
 	if (var) {
+        // Calculate total length for the concat str
 		int total_length = 0;
 		for (int i = 0; i < var->length; i++) {
-			total_length += strlen(var->value[i]) + 1;
+			total_length += strlen(var->value[i]);
+                if (i < var->length - 1)
+                    total_length += 1; // For space btwn words
 		}
-		char *result = malloc(total_length);
+		char *result = malloc(total_length + 1);
+        if (!result) {
+            perror("malloc");
+            exit(EXIT_FAILURE);
+        }
+
 		result[0] = '\0';
 		for (int i = 0; i < var->length; i++) {
 			strcat(result, var->value[i]);
-			if (i < var->length - 1) 
+			if (i < var->length - 1)
 				strcat(result, " ");
 
 		}

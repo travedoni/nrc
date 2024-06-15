@@ -3,11 +3,11 @@
 #include <string.h>
 #include <glob.h>
 #include "parser.h"
-#include "variables.h" 
+#include "variables.h"
 
 #define MAX_ARGS 64
 
-char *concatenate(char *left, char *right) 
+char *concatenate(char *left, char *right)
 {
 	size_t len_left = strlen(left);
 	size_t len_right = strlen(right);
@@ -49,9 +49,10 @@ char **parse_concatenation(char *arg)
 {
 	char *caret = strchr(arg, '^');
 	if (!caret) {
-		return parse_line(arg);
+        return parse_line(arg);
 	}
 
+    // Concatenate args
 	*caret = '\0';
 	char *left_part = arg;
 	char *right_part = caret + 1;
@@ -69,8 +70,29 @@ char **parse_concatenation(char *arg)
 	free(left_list);
 	free(right_list);
 
-	return result;
-}	
+    // int result_len = 0;
+    // for (int i = 0; result[i] != NULL; i++) {
+    //     result_len += strlen(result[i]) + 1;
+    // }
+
+    // char *concatenate_str = malloc(result_len + 1);
+    // concatenate_str[0] = '\0';
+    // for (int i = 0; result[i] != NULL; i++) {
+    //     strcat(concatenate_str, result[i]);
+    //     if (result[i + 1] != NULL)
+    //         strcat(concatenate_str, " ");
+    // }
+
+    // for (int i = 0; result[i] != NULL; i++) {
+    //     free(result[i]);
+    // }
+    // free(result);
+
+    // char **final_result = parse_line(concatenate_str);
+    // free(concatenate_str);
+	// return final_result;
+    return result;
+}
 
 char *get_subscript(char *arg)
 {
@@ -96,11 +118,11 @@ char *get_subscript(char *arg)
 			free(var_name);
 		}
 	}
-	
+
 	return arg;
 }
 
-char *substitute_vars(char *arg) 
+char *substitute_vars(char *arg)
 {
 	if (arg[0] == '$') {
 		char *var_name = arg + 1;
@@ -127,7 +149,7 @@ char *substitute_vars(char *arg)
 	return strdup(arg);
 }
 
-char **parse_line(char *line) 
+char **parse_line(char *line)
 {
 	char **args = malloc(MAX_ARGS * sizeof(char *));
 	int i = 0;
@@ -145,26 +167,26 @@ char **parse_line(char *line)
 			*line = '\0';
 		} else if (!in_quote && (*line == ' ' || *line == '\t' || *line == '\n')) {
 			*line = '\0';
-			if (start != line) 
+			if (start != line)
 				args[i++] = substitute_vars(strdup(start));
 
 			start = line + 1;
 		}
 		line++;
 	}
-	if (start != line && *start != '\0') 
+	if (start != line && *start != '\0')
 		args[i++] = substitute_vars(strdup(start));
 
 	args[i] = NULL;
 	return args;
-}	
+}
 
-char **expand_patterns(char **args) 
+char **expand_patterns(char **args)
 {
 	glob_t globbuf;
 	char **expanded_args = malloc(MAX_ARGS * sizeof(char *));
 	int i, j = 0;
-		
+
 	for (i = 0; args[i] != NULL; i++) {
 		if (strpbrk(args[i], "*?[") != NULL) {
 			glob(args[i], 0, NULL, &globbuf);
@@ -180,7 +202,7 @@ char **expand_patterns(char **args)
 	return expanded_args;
 }
 
-char **split_commands(char *line) 
+char **split_commands(char *line)
 {
 	char **commands = malloc(MAX_ARGS * sizeof(char *));
 	char *command;
@@ -205,14 +227,14 @@ char **split_operators(char *line)
 
 	command = strtok_r(line, "&&||", &saveptr);
 	while (command != NULL) {
-		commands[i++] = command;
+		commands[i++] = strdup(command);
 		command = strtok_r(NULL, "&&||", &saveptr);
 	}
 	commands[i] = NULL;
 	return commands;
-}	
+}
 
-char **split_pipes(char *line) 
+char **split_pipes(char *line)
 {
 	char **commands = malloc(MAX_ARGS * sizeof(char *));
 	char *command;
@@ -236,7 +258,7 @@ char *extract_commands(char *line)
 		*end = '\0';
 		return strdup(start + 1);
 	}
-	
+
 	return NULL;
 }
 
